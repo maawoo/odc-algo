@@ -19,10 +19,10 @@ from typing import (
 from datacube import Datacube
 from datacube.model import Dataset
 from datacube.testutils.io import native_geobox
-from datacube.utils.geometry import GeoBox, gbox
 from ._grouper import group_by_nothing, solar_offset
 from ._masking import _max_fuser, _nodata_fuser, _or_fuser, enum_to_bool, mask_cleanup
-from ._warp import xr_reproject
+from odc.geo.geobox import GeoBox
+from odc.geo.xr import xr_reproject
 
 
 def compute_native_load_geobox(
@@ -149,9 +149,6 @@ def _apply_native_transform_1(
     native_transform: Callable[[xr.Dataset], xr.Dataset],
     groupby: Optional[str] = None,
     fuser: Optional[Callable[[xr.Dataset], xr.Dataset]] = None,
-    resampling: str = "nearest",
-    chunks: Optional[Dict[str, int]] = None,
-    **kwargs,
 ) -> xr.Dataset:
     xx = native_transform(xx)
 
@@ -167,13 +164,8 @@ def _apply_native_transform_1(
             xx = xx.set_xindex(groupby)
         xx = xx.groupby(groupby).map(fuser)
 
-    _chunks = None
-    if chunks is not None:
-        _chunks = tuple(chunks.get(ax, -1) for ax in ("y", "x"))
 
-    return xr_reproject(
-        xx, geobox, chunks=_chunks, resampling=resampling, **kwargs
-    )  # type: ignore
+    return xx
 
 
 def load_with_native_transform(
@@ -250,24 +242,24 @@ def load_with_native_transform(
             kw.get("transform_code"),
             kw.get("area_of_interest"),
         )
-        _xx += [
-            _apply_native_transform_1(
+        yy = _apply_native_transform_1(
                 xx,
                 geobox,
                 native_transform,
-                resampling=resampling,
                 groupby=groupby,
                 fuser=fuser,
-                chunks=chunks,
-                **extra_args,
             )
+
+        _xx += [
+        xr_reproject(
+            yy, geobox, resampling=resampling, chunks=chunks, **extra_args,
+        )  # type: ignore
         ]
 
     if len(_xx) == 1:
         xx = _xx[0]
     else:
-        sources = group_by_nothing(list(dss), solar_offset(geobox.extent))
-        xx = xr.concat(_xx, sources.dims[0])  # type: ignore
+        xx = xr.concat(_xx, _xx[0].dims[0])  # type: ignore
         if groupby != "idx":
             for dim in xx.dims:
                 if isinstance(xx.get_index(dim), pd.MultiIndex):
@@ -275,9 +267,7 @@ def load_with_native_transform(
             if groupby not in xx.indexes.keys():
                 xx = xx.set_xindex(groupby)
             xx = xx.groupby(groupby).map(fuser)
-
     # TODO: probably want to replace spec MultiIndex with just `time` component
-
     return xx
 
 
