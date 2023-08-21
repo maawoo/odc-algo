@@ -114,7 +114,7 @@ def _native_load_1(
     (ds,) = sources.data[0]
     load_geobox = compute_native_load_geobox(geobox, ds, basis)
     if pad is not None:
-        load_geobox = gbox.pad(load_geobox, pad)
+        load_geobox = load_geobox.pad(pad)
 
     mm = ds.type.lookup_measurements(bands)
     xx = Datacube.load_data(sources, load_geobox, mm, dask_chunks=load_chunks)
@@ -163,7 +163,6 @@ def _apply_native_transform_1(
         if groupby not in xx.indexes.keys():
             xx = xx.set_xindex(groupby)
         xx = xx.groupby(groupby).map(fuser)
-
 
     return xx
 
@@ -243,17 +242,21 @@ def load_with_native_transform(
             kw.get("area_of_interest"),
         )
         yy = _apply_native_transform_1(
-                xx,
-                geobox,
-                native_transform,
-                groupby=groupby,
-                fuser=fuser,
-            )
+            xx,
+            geobox,
+            native_transform,
+            groupby=groupby,
+            fuser=fuser,
+        )
 
         _xx += [
-        xr_reproject(
-            yy, geobox, resampling=resampling, chunks=chunks, **extra_args,
-        )  # type: ignore
+            xr_reproject(
+                yy,
+                geobox,
+                resampling=resampling,
+                chunks=chunks,
+                **extra_args,
+            )  # type: ignore
         ]
 
     if len(_xx) == 1:

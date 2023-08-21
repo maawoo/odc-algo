@@ -2,14 +2,12 @@
 Dask aware reproject implementation
 """
 import numpy as np
-import xarray as xr
 from affine import Affine
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Optional
 
 from odc.geo.warp import warp_affine
 from ._numeric import shape_shrink2
 from ._types import NodataType
-
 
 
 def _shrink2(
