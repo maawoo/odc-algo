@@ -10,3 +10,5 @@ target
 dist
 
 *.egg-info
+
+*.pyc
